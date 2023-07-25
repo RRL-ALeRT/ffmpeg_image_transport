@@ -60,10 +60,15 @@ void FFMPEGEncoder::setParameters(rclcpp::Node * node)
 {
   Lock lock(mutex_);
   const std::string ns = "ffmpeg_image_transport.";
-  codecName_ = get_safe_param<std::string>(node, ns + "encoding", "libx264");
+  codecName_ = get_safe_param<std::string>(node, ns + "encoding", "hevc_qsv");
+  if (codecName_.find("qsv") != std::string::npos) 
+  {
+    pixFormat_ = AV_PIX_FMT_NV12;
+  }
   profile_ = get_safe_param<std::string>(node, ns + "profile", "main");
-  preset_ = get_safe_param<std::string>(node, ns + "preset", "slow");
-  qmax_ = get_safe_param<int>(node, ns + "qmax", 10);
+  preset_ = get_safe_param<std::string>(node, ns + "preset", "veryfast");
+  tune_ = get_safe_param<std::string>(node, ns + "tune", "zerolatency");
+  qmax_ = get_safe_param<int>(node, ns + "qmax", 30);
   bitRate_ = get_safe_param<int64_t>(node, ns + "bit_rate", 8242880);
   GOPSize_ = get_safe_param<int64_t>(node, ns + "gop_size", 15);
   RCLCPP_INFO_STREAM(
@@ -94,7 +99,7 @@ bool FFMPEGEncoder::openCodec(int width, int height)
       throw(std::runtime_error("h264_nvmpi must have horiz rez mult of 64"));
     }
     // find codec
-    AVCodec * codec = avcodec_find_encoder_by_name(codecName_.c_str());
+    const AVCodec * codec = avcodec_find_encoder_by_name(codecName_.c_str());
     if (!codec) {
       throw(std::runtime_error("cannot find codec: " + codecName_));
     }
@@ -133,6 +138,13 @@ bool FFMPEGEncoder::openCodec(int width, int height)
       0) {
       RCLCPP_ERROR_STREAM(logger_, "cannot set preset: " << preset_);
     }
+
+    if (
+      av_opt_set(codecContext_->priv_data, "tune", tune_.c_str(), AV_OPT_SEARCH_CHILDREN) !=
+      0) {
+      RCLCPP_ERROR_STREAM(logger_, "cannot set tune: " << tune_);
+    }
+
     RCLCPP_DEBUG(
       logger_,
       "codec: %10s, profile: %10s, preset: %10s,"
@@ -210,6 +222,40 @@ void strided_copy(
   }
 }
 
+cv::Mat FFMPEGEncoder::bgrToNV12(const cv::Mat& bgrImage) {
+  cv::Mat yuvImage;
+  cv::cvtColor(bgrImage, yuvImage, cv::COLOR_BGR2YUV);
+
+  int width = bgrImage.cols;
+  int height = bgrImage.rows;
+
+  // Extract Y (luma) and UV (chroma) components
+  cv::Mat yuvPlanes[3];
+  cv::split(yuvImage, yuvPlanes);
+
+  // Resize UV channels to half the size of the Y channel
+  cv::resize(yuvPlanes[1], yuvPlanes[1], cv::Size(width / 2, height / 2));
+  cv::resize(yuvPlanes[2], yuvPlanes[2], cv::Size(width / 2, height / 2));
+
+  // Create the NV12 image
+  cv::Mat nv12Image(height + height / 2, width, CV_8UC1);
+  // Copy Y (luma) component
+  yuvPlanes[0].copyTo(nv12Image.rowRange(0, height));
+
+  // Copy UV (chroma) components (packed in the same buffer)
+  for (int y = 0; y < height / 2; y++) {
+    const uchar* uRow = yuvPlanes[1].ptr<uchar>(y); // U channel
+    const uchar* vRow = yuvPlanes[2].ptr<uchar>(y); // V channel
+    uchar* nv12Row = nv12Image.ptr<uchar>(height + y);
+    for (int x = 0; x < width / 2; x++) {
+      nv12Row[x * 2] = uRow[x];  // U channel
+      nv12Row[x * 2 + 1] = vRow[x];  // V channel
+    }
+  }
+
+  return nv12Image;
+}
+
 void FFMPEGEncoder::encodeImage(const cv::Mat & img, const Header & header, const rclcpp::Time & t0)
 {
   Lock lock(mutex_);
@@ -239,6 +285,13 @@ void FFMPEGEncoder::encodeImage(const cv::Mat & img, const Header & header, cons
     strided_copy(
       frame_->data[2], frame_->linesize[2], p + width * height + width / 2 * height / 2, width / 2,
       height / 2, width / 2);
+  } else if (targetFmt == AV_PIX_FMT_NV12) {
+    cv::Mat nv12_img = FFMPEGEncoder::bgrToNV12(img);
+    const uint8_t *p = nv12_img.data;
+    // Y
+    strided_copy(frame_->data[0], frame_->linesize[0], p, width, height, width);
+    // UV (packed in the same buffer)
+    strided_copy(frame_->data[1], frame_->linesize[1], p + width * height, width, height / 2, width);
   } else {
     RCLCPP_ERROR_STREAM(logger_, "cannot convert format bgr8 -> " << (int)codecContext_->pix_fmt);
     return;

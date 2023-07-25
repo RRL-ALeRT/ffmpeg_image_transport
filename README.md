@@ -59,6 +59,9 @@ image_transport/ffmpeg"
 Remember to install the plugin on both hosts, the one that is encoding and
 the one that is decoding (viewing).
 
+For qsv, refer
+https://trac.ffmpeg.org/wiki/Hardware/QuickSync
+
 ## Parameters
 
 The plugin has a few parameters that allow for some amount of control.

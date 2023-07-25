@@ -108,6 +108,7 @@ public:
   void setParameters(rclcpp::Node * node);
   void reset();
   // encode image
+  cv::Mat bgrToNV12(const cv::Mat& bgrImage);
   void encodeImage(const cv::Mat & img, const Header & header, const rclcpp::Time & t0);
   void encodeImage(const Image & msg);
   // ------- performance statistics
@@ -127,6 +128,7 @@ private:
   // config
   std::string codecName_;  // e.g. "libx264"
   std::string preset_;     // e.g. "slow", "medium", "lossless"
+  std::string tune_;       // e.g. "zerolatency"
   std::string profile_;    // e.g. "main", "high", "rext"
   int qmax_{0};            // max allowed quantization. The lower the better quality
   int GOPSize_{15};        // distance between two keyframes

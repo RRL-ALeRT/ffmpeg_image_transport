@@ -29,6 +29,9 @@ static const char nsc[] = "ffmpeg_image_transport.map.";
 static const std::unordered_map<std::string, std::string> defaultMap{
   {{"h264_nvenc", "h264"},
    {"libx264", "h264"},
+   {"libx265", "hevc"},
+   {"hevc_qsv", "hevc"},
+   {"h264_qsv", "h264"},
    {"hevc_nvenc", "hevc_cuvid"},
    {"h264_nvmpi", "h264"}}};
 
