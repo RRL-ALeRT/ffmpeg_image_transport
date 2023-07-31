@@ -60,8 +60,8 @@ void FFMPEGEncoder::setParameters(rclcpp::Node * node)
 {
   Lock lock(mutex_);
   const std::string ns = "ffmpeg_image_transport.";
-  codecName_ = get_safe_param<std::string>(node, ns + "encoding", "hevc_qsv");
-  if (codecName_.find("qsv") != std::string::npos) 
+  codecName_ = get_safe_param<std::string>(node, ns + "encoding", "libx264");
+  if (codecName_.find("qsv") != std::string::npos)
   {
     pixFormat_ = AV_PIX_FMT_NV12;
   }

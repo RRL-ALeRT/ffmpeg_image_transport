@@ -49,6 +49,8 @@ private:
   // ---------- configurable parameters
   int performanceInterval_{175};  // num frames between perf printouts
   bool measurePerformance_{false};
+
+  mutable int skip_few_initial_frames{0};
 };
 }  // namespace ffmpeg_image_transport
 

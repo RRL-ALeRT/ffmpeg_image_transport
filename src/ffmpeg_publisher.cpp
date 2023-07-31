@@ -44,6 +44,13 @@ void FFMPEGPublisher::advertiseImpl(
 
 void FFMPEGPublisher::publish(const Image & msg, const PublishFn & publish_fn) const
 {
+  // Fixes segfault/exception when the topic is already streamed, and align_depth is enabled for realsense
+  if (skip_few_initial_frames < 30)
+  {
+    skip_few_initial_frames++;
+    return;
+  }
+
   FFMPEGPublisher * me = const_cast<FFMPEGPublisher *>(this);
   if (!me->encoder_.isInitialized()) {
     me->publishFunction_ = &publish_fn;
