@@ -15,17 +15,23 @@
 
 #include "ffmpeg_image_transport/ffmpeg_decoder.hpp"
 
-#include <cv_bridge/cv_bridge.h>
-
 #include <fstream>
 #include <iomanip>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-#include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/image_encodings.hpp>
 #include <unordered_map>
 
 namespace ffmpeg_image_transport
 {
+// default mappings
+static const std::unordered_map<std::string, std::string> defaultMap{
+  {{"h264_nvenc", "h264"},
+   {"libx264", "h264"},
+   {"hevc_nvenc", "hevc_cuvid"},
+   {"h264_nvmpi", "h264"},
+   {"h264_vaapi", "h264"}}};
+
 FFMPEGDecoder::FFMPEGDecoder() : logger_(rclcpp::get_logger("FFMPEGDecoder")) {}
 
 FFMPEGDecoder::~FFMPEGDecoder() { reset(); }
@@ -57,7 +63,7 @@ bool FFMPEGDecoder::initialize(
 {
   std::string decoder = dec;
   if (decoder.empty()) {
-    RCLCPP_INFO_STREAM(logger_, "unknown encoding: " << msg->encoding);
+    RCLCPP_INFO_STREAM(logger_, "no decoder for encoding: " << msg->encoding);
     return (false);
   }
   callback_ = callback;
@@ -131,8 +137,8 @@ bool FFMPEGDecoder::initDecoder(
     const AVCodec * codec = NULL;
     codec = avcodec_find_decoder_by_name(decoder.c_str());
     if (!codec) {
-      RCLCPP_ERROR_STREAM(logger_, "cannot open decoder " << decoder);
-      throw(std::runtime_error("cannot open decoder " + decoder));
+      RCLCPP_ERROR_STREAM(logger_, "cannot find decoder " << decoder);
+      throw(std::runtime_error("cannot find decoder " + decoder));
     }
     codecContext_ = avcodec_alloc_context3(codec);
     if (!codecContext_) {
@@ -273,4 +279,8 @@ void FFMPEGDecoder::printTimers(const std::string & prefix) const
   RCLCPP_INFO_STREAM(logger_, prefix << " total decode: " << tdiffTotal_);
 }
 
+const std::unordered_map<std::string, std::string> & FFMPEGDecoder::getDefaultEncoderToDecoderMap()
+{
+  return (defaultMap);
+}
 }  // namespace ffmpeg_image_transport
