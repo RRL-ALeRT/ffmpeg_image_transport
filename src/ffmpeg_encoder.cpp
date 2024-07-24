@@ -92,11 +92,11 @@ void FFMPEGEncoder::setParameters(rclcpp::Node * node)
   Lock lock(mutex_);
   const std::string ns = "ffmpeg_image_transport.";
   codecName_ = get_safe_param<std::string>(node, ns + "encoding", "libx264");
-  profile_ = get_safe_param<std::string>(node, ns + "profile", "");
-  preset_ = get_safe_param<std::string>(node, ns + "preset", "");
-  tune_ = get_safe_param<std::string>(node, ns + "tune", "");
+  profile_ = get_safe_param<std::string>(node, ns + "profile", "main");
+  preset_ = get_safe_param<std::string>(node, ns + "preset", "veryfast");
+  tune_ = get_safe_param<std::string>(node, ns + "tune", "zerolatency");
   delay_ = get_safe_param<std::string>(node, ns + "delay", "");
-  qmax_ = get_safe_param<int>(node, ns + "qmax", 10);
+  qmax_ = get_safe_param<int>(node, ns + "qmax", 30);
   bitRate_ = get_safe_param<int64_t>(node, ns + "bit_rate", 8242880);
   GOPSize_ = get_safe_param<int64_t>(node, ns + "gop_size", 15);
   pixFormat_ = pixelFormat(get_safe_param<std::string>(node, ns + "pixel_format", ""));
